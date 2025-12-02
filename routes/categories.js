@@ -9,8 +9,19 @@ const router = express.Router();
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({ order: 1, name: 1 });
-    res.json(categories);
+    const { type } = req.query;
+    const query = { isActive: true };
+    
+    // Filter by type (product or project)
+    if (type) {
+      query.type = type;
+    }
+    
+    const categories = await Category.find(query).sort({ order: 1, name: 1 });
+    res.json({
+      success: true,
+      data: categories
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

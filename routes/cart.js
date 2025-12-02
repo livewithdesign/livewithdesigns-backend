@@ -47,7 +47,7 @@ router.post('/add', protect, async (req, res) => {
     }
     
     // Check stock
-    if (product.stock_quantity < quantity) {
+    if (product.stockQuantity < quantity) {
       return res.status(400).json({ message: 'Insufficient stock' });
     }
     

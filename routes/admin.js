@@ -6,6 +6,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Project = require('../models/Project');
+const Blog = require('../models/Blog');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
@@ -34,6 +35,9 @@ router.get('/dashboard', protect, admin, async (req, res) => {
     const totalUsers = await User.countDocuments();
     const totalOrders = await Order.countDocuments();
     const totalProducts = await Product.countDocuments();
+    const totalProjects = await Project.countDocuments();
+    const totalBlogs = await Blog.countDocuments();
+    const totalCustomers = await User.countDocuments({ role: 'customer' });
     
     // Calculate revenue (example - you might want to refine this)
     const orders = await Order.find({ orderStatus: 'delivered' });
@@ -45,6 +49,9 @@ router.get('/dashboard', protect, admin, async (req, res) => {
         totalUsers,
         totalOrders,
         totalProducts,
+        totalProjects,
+        totalBlogs,
+        totalCustomers,
         totalRevenue,
         newOrders: await Order.countDocuments({ orderStatus: 'processing' }),
         pendingOrders: await Order.countDocuments({ orderStatus: 'shipped' })

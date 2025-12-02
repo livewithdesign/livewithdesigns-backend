@@ -1,6 +1,7 @@
 const express = require('express');
 const { protect, admin } = require('../middleware/auth');
 const Project = require('../models/Project');
+const Category = require('../models/Category');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
@@ -31,9 +32,18 @@ router.get('/', async (req, res) => {
     
     let query = { isActive: true };
     
-    // Category filter
+    // Category filter - can be ID or slug
     if (category) {
-      query.category = category;
+      // Check if category is a valid ObjectId
+      if (category.match(/^[0-9a-fA-F]{24}$/)) {
+        query.category = category;
+      } else {
+        // Find category by slug
+        const categoryDoc = await Category.findOne({ slug: category, type: 'project' });
+        if (categoryDoc) {
+          query.category = categoryDoc._id;
+        }
+      }
     }
     
     // Location filters

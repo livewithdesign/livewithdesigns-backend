@@ -22,6 +22,8 @@ const wishlistRoutes = require('./routes/wishlist');
 const mediaRoutes = require('./routes/media');
 const adminRoutes = require('./routes/admin');
 const categoryRoutes = require('./routes/categories');
+const reviewRoutes = require('./routes/reviews');
+const addressRoutes = require('./routes/addresses');
 
 const app = express();
 
@@ -42,6 +44,8 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/addresses', addressRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
