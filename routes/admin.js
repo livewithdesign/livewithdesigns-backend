@@ -7,6 +7,8 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Project = require('../models/Project');
 const Blog = require('../models/Blog');
+const Service = require('../models/Service');
+const ContactMessage = require('../models/ContactMessage');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
@@ -37,6 +39,8 @@ router.get('/dashboard', protect, admin, async (req, res) => {
     const totalProducts = await Product.countDocuments();
     const totalProjects = await Project.countDocuments();
     const totalBlogs = await Blog.countDocuments();
+    const totalServices = await Service.countDocuments();
+    const totalCategories = await Category.countDocuments();
     const totalCustomers = await User.countDocuments({ role: 'customer' });
     
     // Calculate revenue (example - you might want to refine this)
@@ -51,6 +55,8 @@ router.get('/dashboard', protect, admin, async (req, res) => {
         totalProducts,
         totalProjects,
         totalBlogs,
+        totalServices,
+        totalCategories,
         totalCustomers,
         totalRevenue,
         newOrders: await Order.countDocuments({ orderStatus: 'processing' }),
@@ -209,11 +215,25 @@ router.put('/orders/:id', protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.get('/categories', protect, admin, async (req, res) => {
   try {
-    const categories = await Category.find({}).sort({ order: 1, name: 1 });
+    const { page = 1, limit = 10 } = req.query;
+    
+    const categories = await Category.find({})
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ order: 1, name: 1 });
+    
+    const total = await Category.countDocuments();
     
     res.json({
       success: true,
-      data: categories
+      data: categories,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalCategories: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -419,6 +439,345 @@ router.post('/upload', protect, admin, upload.single('image'), async (req, res) 
       message: error.message || 'Failed to upload image',
       error: error.toString()
     });
+  }
+});
+
+// ==================== PRODUCTS ====================
+
+// @desc    Get all products (admin view)
+// @route   GET /api/admin/products
+// @access  Private/Admin
+router.get('/products', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, category, search, inStock } = req.query;
+    
+    let query = {};
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (inStock !== undefined) {
+      query.inStock = inStock === 'true';
+    }
+    
+    const products = await Product.find(query)
+      .populate('category', 'name slug')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+    
+    const total = await Product.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: products,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalProducts: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get single product (admin view)
+// @route   GET /api/admin/products/:id
+// @access  Private/Admin
+router.get('/products/:id', protect, admin, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id).populate('category', 'name slug');
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== PROJECTS ====================
+
+// @desc    Get all projects (admin view)
+// @route   GET /api/admin/projects
+// @access  Private/Admin
+router.get('/projects', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, category, status, search } = req.query;
+    
+    let query = {};
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (status) {
+      query.status = status;
+    }
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const projects = await Project.find(query)
+      .populate('category', 'name slug')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+    
+    const total = await Project.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: projects,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalProjects: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get single project (admin view)
+// @route   GET /api/admin/projects/:id
+// @access  Private/Admin
+router.get('/projects/:id', protect, admin, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id).populate('category', 'name slug');
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: project
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== BLOGS ====================
+
+// @desc    Get all blogs (admin view)
+// @route   GET /api/admin/blogs
+// @access  Private/Admin
+router.get('/blogs', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, category, search } = req.query;
+    
+    let query = {};
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { excerpt: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const blogs = await Blog.find(query)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+    
+    const total = await Blog.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: blogs,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalBlogs: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get single blog (admin view)
+// @route   GET /api/admin/blogs/:id
+// @access  Private/Admin
+router.get('/blogs/:id', protect, admin, async (req, res) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
+    
+    if (!blog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: blog
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== SERVICES ====================
+
+// @desc    Get all services (admin view)
+// @route   GET /api/admin/services
+// @access  Private/Admin
+router.get('/services', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, category, search } = req.query;
+    
+    let query = {};
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const services = await Service.find(query)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ order: 1, createdAt: -1 });
+    
+    const total = await Service.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: services,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalServices: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get single service (admin view)
+// @route   GET /api/admin/services/:id
+// @access  Private/Admin
+router.get('/services/:id', protect, admin, async (req, res) => {
+  try {
+    const service = await Service.findById(req.params.id);
+    
+    if (!service) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: service
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== CONTACT MESSAGES ====================
+
+// @desc    Get all contact messages (admin view)
+// @route   GET /api/admin/contacts
+// @access  Private/Admin
+router.get('/contacts', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, search } = req.query;
+    
+    let query = {};
+    
+    if (status) {
+      query.status = status;
+    }
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const messages = await ContactMessage.find(query)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+    
+    const total = await ContactMessage.countDocuments(query);
+    
+    res.json({
+      success: true,
+      data: messages,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(total / limit),
+        totalMessages: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get single contact message (admin view)
+// @route   GET /api/admin/contacts/:id
+// @access  Private/Admin
+router.get('/contacts/:id', protect, admin, async (req, res) => {
+  try {
+    const message = await ContactMessage.findById(req.params.id);
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Contact message not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: message
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

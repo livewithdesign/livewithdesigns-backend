@@ -232,10 +232,17 @@ router.post('/', protect, admin, upload.single('image'), async (req, res) => {
       color, material, dimensions, weight, stockQuantity, tags, isFeatured, sku
     } = req.body;
 
+    // Fetch category to get categoryName
+    const categoryDoc = await Category.findById(category);
+    if (!categoryDoc) {
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+
     // Create product
     const productData = {
       name,
       category,
+      categoryName: categoryDoc.name,
       price: Number(price),
       originalPrice: originalPrice ? Number(originalPrice) : undefined,
       description,
@@ -290,6 +297,15 @@ router.put('/:id', protect, admin, upload.single('image'), async (req, res) => {
     }
     
     const updateData = { ...req.body };
+    
+    // If category is being updated, fetch and set categoryName
+    if (updateData.category && updateData.category !== product.category.toString()) {
+      const categoryDoc = await Category.findById(updateData.category);
+      if (!categoryDoc) {
+        return res.status(400).json({ message: 'Invalid category ID' });
+      }
+      updateData.categoryName = categoryDoc.name;
+    }
     
     // Parse JSON fields
     if (updateData.tags && typeof updateData.tags === 'string') {

@@ -42,11 +42,31 @@ router.get('/', async (req, res) => {
 });
 
 // @desc    Fetch single blog post by slug
-// @route   GET /api/blog/:slug
+// @route   GET /api/blog/slug/:slug
 // @access  Public
-router.get('/:slug', async (req, res) => {
+router.get('/slug/:slug', async (req, res) => {
   try {
     const blog = await Blog.findOne({ slug: req.params.slug });
+    
+    if (!blog) {
+      return res.status(404).json({ message: 'Blog post not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: blog
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Fetch single blog post by ID
+// @route   GET /api/blog/:id
+// @access  Public
+router.get('/:id', async (req, res) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
     
     if (!blog) {
       return res.status(404).json({ message: 'Blog post not found' });

@@ -210,6 +210,27 @@ router.get('/filters/options', async (req, res) => {
   }
 });
 
+// @desc    Get single project by ID
+// @route   GET /api/projects/:id
+// @access  Public
+router.get('/:id', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .populate('category', 'name slug');
+    
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: project
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @desc    Create new project
 // @route   POST /api/projects
 // @access  Private/Admin
