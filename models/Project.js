@@ -129,6 +129,14 @@ const projectSchema = new mongoose.Schema({
     }
   },
 
+  // 3D Model
+  model3D: {
+    url: String,
+    format: String, // glb, gltf, obj, fbx
+    publicId: String,
+    size: Number // in bytes
+  },
+
   // Materials & Technologies
   materials: [{
     name: String,

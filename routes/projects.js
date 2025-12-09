@@ -236,13 +236,33 @@ router.get('/:id', async (req, res) => {
 // @access  Private/Admin
 router.post('/', protect, admin, async (req, res) => {
   try {
-    const project = await Project.create(req.body);
+    // Parse nested objects if sent as strings
+    const projectData = { ...req.body };
+    
+    if (typeof projectData.images === 'string') {
+      projectData.images = JSON.parse(projectData.images);
+    }
+    if (typeof projectData.rooms === 'string') {
+      projectData.rooms = JSON.parse(projectData.rooms);
+    }
+    if (typeof projectData.highlights === 'string') {
+      projectData.highlights = JSON.parse(projectData.highlights);
+    }
+    if (typeof projectData.materials === 'string') {
+      projectData.materials = JSON.parse(projectData.materials);
+    }
+    if (typeof projectData.features === 'string') {
+      projectData.features = JSON.parse(projectData.features);
+    }
+    
+    const project = await Project.create(projectData);
     
     res.status(201).json({
       success: true,
       data: project
     });
   } catch (error) {
+    console.error('Error creating project:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -252,9 +272,28 @@ router.post('/', protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.put('/:id', protect, admin, async (req, res) => {
   try {
+    // Parse nested objects if sent as strings
+    const updateData = { ...req.body };
+    
+    if (typeof updateData.images === 'string') {
+      updateData.images = JSON.parse(updateData.images);
+    }
+    if (typeof updateData.rooms === 'string') {
+      updateData.rooms = JSON.parse(updateData.rooms);
+    }
+    if (typeof updateData.highlights === 'string') {
+      updateData.highlights = JSON.parse(updateData.highlights);
+    }
+    if (typeof updateData.materials === 'string') {
+      updateData.materials = JSON.parse(updateData.materials);
+    }
+    if (typeof updateData.features === 'string') {
+      updateData.features = JSON.parse(updateData.features);
+    }
+    
     const project = await Project.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).populate('category', 'name slug');
     
@@ -267,6 +306,7 @@ router.put('/:id', protect, admin, async (req, res) => {
       data: project
     });
   } catch (error) {
+    console.error('Error updating project:', error);
     res.status(500).json({ message: error.message });
   }
 });

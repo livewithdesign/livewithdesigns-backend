@@ -225,7 +225,7 @@ router.get('/:identifier', async (req, res) => {
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private/Admin
-router.post('/', protect, admin, upload.single('image'), async (req, res) => {
+router.post('/', protect, admin, upload.array('images', 10), async (req, res) => {
   try {
     const { 
       name, category, price, originalPrice, description, shortDescription,
@@ -266,11 +266,21 @@ router.post('/', protect, admin, upload.single('image'), async (req, res) => {
       productData.weight = typeof weight === 'string' ? JSON.parse(weight) : weight;
     }
 
-    // Upload image if provided
-    if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, 'livewithdesigns/products');
-      productData.thumbnail = result.secure_url;
-      productData.images = [{ url: result.secure_url, publicId: result.public_id }];
+    // Upload images if provided
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map(file => 
+        uploadToCloudinary(file.buffer, 'livewithdesigns/products')
+      );
+      
+      const results = await Promise.all(uploadPromises);
+      
+      productData.images = results.map(result => ({
+        url: result.secure_url,
+        publicId: result.public_id
+      }));
+      
+      // Set first image as thumbnail
+      productData.thumbnail = results[0].secure_url;
     }
 
     const product = await Product.create(productData);
@@ -288,7 +298,7 @@ router.post('/', protect, admin, upload.single('image'), async (req, res) => {
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
-router.put('/:id', protect, admin, upload.single('image'), async (req, res) => {
+router.put('/:id', protect, admin, upload.array('images', 10), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     
@@ -317,6 +327,9 @@ router.put('/:id', protect, admin, upload.single('image'), async (req, res) => {
     if (updateData.weight && typeof updateData.weight === 'string') {
       updateData.weight = JSON.parse(updateData.weight);
     }
+    if (updateData.existingImages && typeof updateData.existingImages === 'string') {
+      updateData.existingImages = JSON.parse(updateData.existingImages);
+    }
     
     // Handle boolean fields
     if (updateData.isFeatured !== undefined) {
@@ -326,24 +339,33 @@ router.put('/:id', protect, admin, upload.single('image'), async (req, res) => {
       updateData.isActive = updateData.isActive === 'true' || updateData.isActive === true;
     }
     
-    // Upload new image if provided
-    if (req.file) {
-      // Delete old image from Cloudinary
-      if (product.images && product.images.length > 0) {
-        for (const img of product.images) {
-          if (img.publicId) {
-            try {
-              await deleteFromCloudinary(img.publicId);
-            } catch (e) {
-              console.error('Error deleting old image:', e);
-            }
-          }
-        }
-      }
+    // Upload new images if provided
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map(file => 
+        uploadToCloudinary(file.buffer, 'livewithdesigns/products')
+      );
       
-      const result = await uploadToCloudinary(req.file.buffer, 'livewithdesigns/products');
-      updateData.thumbnail = result.secure_url;
-      updateData.images = [{ url: result.secure_url, publicId: result.public_id }];
+      const results = await Promise.all(uploadPromises);
+      
+      const newImages = results.map(result => ({
+        url: result.secure_url,
+        publicId: result.public_id
+      }));
+      
+      // Combine existing images with new ones
+      const existingImages = updateData.existingImages || [];
+      updateData.images = [...existingImages, ...newImages];
+      
+      // Set first image as thumbnail if not already set
+      if (updateData.images.length > 0) {
+        updateData.thumbnail = updateData.images[0].url;
+      }
+    } else if (updateData.existingImages) {
+      // Just keep existing images if no new images uploaded
+      updateData.images = updateData.existingImages;
+      if (updateData.images.length > 0) {
+        updateData.thumbnail = updateData.images[0].url;
+      }
     }
     
     // Update stock status

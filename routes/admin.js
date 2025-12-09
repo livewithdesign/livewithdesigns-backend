@@ -15,16 +15,50 @@ const router = express.Router();
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
+
+// Image upload configuration
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024 // 5MB limit for images
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
+
+// Video upload configuration (100MB limit)
+const uploadVideo = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit for videos
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed!'), false);
+    }
+  }
+});
+
+// 3D Model upload configuration (50MB limit)
+const upload3D = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for 3D models
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.glb', '.gltf', '.obj', '.fbx', '.dae'];
+    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    if (allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only 3D model files are allowed (GLB, GLTF, OBJ, FBX, DAE)!'), false);
     }
   }
 });
@@ -437,6 +471,107 @@ router.post('/upload', protect, admin, upload.single('image'), async (req, res) 
     console.error('Image upload error:', error);
     res.status(500).json({ 
       message: error.message || 'Failed to upload image',
+      error: error.toString()
+    });
+  }
+});
+
+// @desc    Upload multiple images
+// @route   POST /api/admin/upload-multiple
+// @access  Private/Admin
+router.post('/upload-multiple', protect, admin, upload.array('images', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    console.log(`Uploading ${req.files.length} images to Cloudinary...`);
+    
+    const uploadPromises = req.files.map(file => 
+      uploadToCloudinary(file.buffer, 'livewithdesigns/gallery')
+    );
+    
+    const results = await Promise.all(uploadPromises);
+    
+    const images = results.map(result => ({
+      url: result.secure_url,
+      publicId: result.public_id
+    }));
+
+    console.log(`${images.length} images uploaded successfully`);
+
+    res.json({
+      success: true,
+      images
+    });
+  } catch (error) {
+    console.error('Multiple image upload error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to upload images',
+      error: error.toString()
+    });
+  }
+});
+
+// @desc    Upload video
+// @route   POST /api/admin/upload-video
+// @access  Private/Admin
+router.post('/upload-video', protect, admin, uploadVideo.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video file uploaded' });
+    }
+
+    console.log('Uploading video to Cloudinary...');
+    
+    // Upload video to Cloudinary with video resource type
+    const result = await uploadToCloudinary(req.file.buffer, 'livewithdesigns/videos', 'video');
+    
+    console.log('Video uploaded successfully:', result.secure_url);
+
+    res.json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+      duration: result.duration,
+      format: result.format
+    });
+  } catch (error) {
+    console.error('Video upload error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to upload video',
+      error: error.toString()
+    });
+  }
+});
+
+// @desc    Upload 3D model
+// @route   POST /api/admin/upload-3d
+// @access  Private/Admin
+router.post('/upload-3d', protect, admin, upload3D.single('model'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No 3D model file uploaded' });
+    }
+
+    console.log('Uploading 3D model to Cloudinary...');
+    
+    // Upload 3D model as raw file type
+    const result = await uploadToCloudinary(req.file.buffer, 'livewithdesigns/models', 'raw');
+    
+    console.log('3D model uploaded successfully:', result.secure_url);
+
+    res.json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      size: result.bytes
+    });
+  } catch (error) {
+    console.error('3D model upload error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to upload 3D model',
       error: error.toString()
     });
   }

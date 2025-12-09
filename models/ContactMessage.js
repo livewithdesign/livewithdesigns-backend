@@ -25,6 +25,15 @@ const contactMessageSchema = new mongoose.Schema({
     required: [true, 'Message is required']
   },
   serviceType: String,
+  city: String,
+  whatsappUpdates: {
+    type: Boolean,
+    default: false
+  },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  },
   status: {
     type: String,
     enum: ['new', 'read', 'replied'],

@@ -9,7 +9,7 @@ const router = express.Router();
 // @access  Public
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, subject, message, serviceType } = req.body;
+    const { name, email, phone, subject, message, serviceType, city, whatsappUpdates, projectId } = req.body;
 
     const contactMessage = new ContactMessage({
       name,
@@ -17,7 +17,10 @@ router.post('/', async (req, res) => {
       phone,
       subject,
       message,
-      serviceType
+      serviceType,
+      city,
+      whatsappUpdates,
+      projectId
     });
 
     const createdMessage = await contactMessage.save();
