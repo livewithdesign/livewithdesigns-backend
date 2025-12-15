@@ -295,4 +295,99 @@ router.put('/admin/:id/approve', protect, admin, async (req, res) => {
   }
 });
 
+// @desc    Add admin reply to review
+// @route   PUT /api/reviews/admin/:id/reply
+// @access  Private/Admin
+router.put('/admin/:id/reply', protect, admin, async (req, res) => {
+  try {
+    const { comment } = req.body;
+    
+    if (!comment || comment.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Reply comment is required' });
+    }
+
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { 
+        adminReply: {
+          comment: comment.trim(),
+          repliedBy: req.user._id,
+          repliedAt: new Date()
+        }
+      },
+      { new: true }
+    )
+    .populate('user', 'name email')
+    .populate('product', 'name slug thumbnail')
+    .populate('adminReply.repliedBy', 'name');
+
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      data: review,
+      message: 'Reply added successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Delete admin reply from review
+// @route   DELETE /api/reviews/admin/:id/reply
+// @access  Private/Admin
+router.delete('/admin/:id/reply', protect, admin, async (req, res) => {
+  try {
+    const review = await Review.findByIdAndUpdate(
+      req.params.id,
+      { 
+        $unset: { adminReply: 1 }
+      },
+      { new: true }
+    )
+    .populate('user', 'name email')
+    .populate('product', 'name slug thumbnail');
+
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      data: review,
+      message: 'Reply deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Delete review (Admin)
+// @route   DELETE /api/reviews/admin/:id
+// @access  Private/Admin
+router.delete('/admin/:id', protect, admin, async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return res.status(404).json({ success: false, message: 'Review not found' });
+    }
+
+    const productId = review.product;
+    await Review.findByIdAndDelete(req.params.id);
+
+    // Recalculate rating
+    await Review.calculateAverageRating(productId);
+
+    res.json({
+      success: true,
+      message: 'Review deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

@@ -9,6 +9,7 @@ const Project = require('../models/Project');
 const Blog = require('../models/Blog');
 const Service = require('../models/Service');
 const ContactMessage = require('../models/ContactMessage');
+const SiteSettings = require('../models/SiteSettings');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
@@ -913,6 +914,113 @@ router.get('/contacts/:id', protect, admin, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== SITE SETTINGS ====================
+
+// Media upload for settings (supports both images and videos up to 50MB)
+const uploadMedia = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed!'), false);
+    }
+  }
+});
+
+// @desc    Get home banner settings (admin)
+// @route   GET /api/admin/settings/home-banner
+// @access  Private/Admin
+router.get('/settings/home-banner', protect, admin, async (req, res) => {
+  try {
+    const settings = await SiteSettings.getSettings('main');
+    
+    res.json({
+      success: true,
+      data: settings.homeBanner
+    });
+  } catch (error) {
+    console.error('Error fetching home banner:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch banner settings',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Update home banner settings
+// @route   PUT /api/admin/settings/home-banner
+// @access  Private/Admin
+router.put('/settings/home-banner', protect, admin, uploadMedia.single('media'), async (req, res) => {
+  try {
+    const settings = await SiteSettings.getSettings('main');
+    
+    const {
+      title,
+      subtitle,
+      mediaType,
+      primaryButtonText,
+      primaryButtonLink,
+      secondaryButtonText,
+      secondaryButtonLink
+    } = req.body;
+
+    // Update text fields
+    if (title) settings.homeBanner.title = title;
+    if (subtitle) settings.homeBanner.subtitle = subtitle;
+    if (mediaType) settings.homeBanner.mediaType = mediaType;
+    if (primaryButtonText) settings.homeBanner.primaryButtonText = primaryButtonText;
+    if (primaryButtonLink) settings.homeBanner.primaryButtonLink = primaryButtonLink;
+    if (secondaryButtonText) settings.homeBanner.secondaryButtonText = secondaryButtonText;
+    if (secondaryButtonLink) settings.homeBanner.secondaryButtonLink = secondaryButtonLink;
+
+    // Handle media upload
+    if (req.file) {
+      // Delete old media from Cloudinary if exists
+      if (settings.homeBanner.mediaPublicId) {
+        try {
+          const resourceType = settings.homeBanner.mediaType === 'video' ? 'video' : 'image';
+          await deleteFromCloudinary(settings.homeBanner.mediaPublicId, resourceType);
+        } catch (err) {
+          console.log('Error deleting old media:', err.message);
+        }
+      }
+
+      // Upload new media to Cloudinary
+      const resourceType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      const result = await uploadToCloudinary(
+        req.file.buffer, 
+        'livewithdesigns/banners',
+        resourceType
+      );
+
+      settings.homeBanner.mediaUrl = result.secure_url;
+      settings.homeBanner.mediaPublicId = result.public_id;
+      settings.homeBanner.mediaType = resourceType;
+    }
+
+    settings.updatedBy = req.user._id;
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Banner updated successfully',
+      data: settings.homeBanner
+    });
+  } catch (error) {
+    console.error('Error updating home banner:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to update banner settings',
+      error: error.message 
+    });
   }
 });
 

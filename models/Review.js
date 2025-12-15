@@ -47,6 +47,21 @@ const reviewSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Admin reply/comment feature
+  adminReply: {
+    comment: {
+      type: String,
+      trim: true,
+      maxlength: [1000, 'Reply cannot exceed 1000 characters']
+    },
+    repliedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    repliedAt: {
+      type: Date
+    }
   }
 }, {
   timestamps: true

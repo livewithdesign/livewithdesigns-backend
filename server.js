@@ -24,6 +24,7 @@ const adminRoutes = require('./routes/admin');
 const categoryRoutes = require('./routes/categories');
 const reviewRoutes = require('./routes/reviews');
 const addressRoutes = require('./routes/addresses');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/addresses', addressRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
